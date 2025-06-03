@@ -1,19 +1,21 @@
+// Marks this class as injectable so it can be provided and used by other services/controllers via NestJS's DI system
 import { Injectable } from '@nestjs/common';
-import { UserService } from '../user/user.service';
 
-@Injectable()
+@Injectable() // Enables this service to be injected where needed
 export class LoggerService {
-  constructor(
-    private readonly level: string,
-    private readonly userService: UserService,
-  ) {}
 
-  log(message: string) {
-    console.log(`[${this.level}] ${message}`);
-  }
+    // Constructor with a `level` parameter, defaulting to 'DEBUG' if not provided
+    // This sets the log level (could be used to filter logs later if expanded)
+    constructor(private readonly level: string = 'DEBUG') { }
 
-  logUserContext() {
-    const user = this.userService.getMockUser();
-    this.log(`User context: ${JSON.stringify(user)}`);
-  }
+    // Basic log method that prints a formatted log message to the console
+    log(message: string) {
+        console.log(`[${this.level}] ${message}`); // e.g., [DEBUG] Starting app...
+    }
+
+    // A utility method to log structured data (like a user object) with a custom label
+    logWithContext(label: string, context: any) {
+        // Converts the context object to JSON string and logs it with a label
+        this.log(`${label}: ${JSON.stringify(context)}`);
+    }
 }

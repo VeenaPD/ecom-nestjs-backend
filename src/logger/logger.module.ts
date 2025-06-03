@@ -1,53 +1,38 @@
-// import { DynamicModule, Global, Module, forwardRef } from '@nestjs/common';
-// import { LoggerService } from './logger.service';
-// import { UserService } from '../user/user.service'; // assuming you have it
+// Import decorators and types from NestJS core package
+import { DynamicModule, Global, Module } from '@nestjs/common';
 
-// @Global()
-// @Module({})
-// export class LoggerModule {
-//   static forRootAsync(): DynamicModule {
-//     return {
-//       module: LoggerModule,
-//       imports: [forwardRef(() => require('../user/user.module').UserModule)],
-//       providers: [
-//         {
-//           provide: LoggerService,
-//           inject: [UserService],
-//           useFactory: async (userService: UserService) => {
-//             await new Promise((res) => setTimeout(res, 100));
-//             return new LoggerService('DEBUG', userService);
-//           },
-//         },
-//       ],
-//       exports: [LoggerService],
-//     };
-//   }
-// }
-
-import { DynamicModule, Global, Module, forwardRef } from '@nestjs/common';
+// Import the LoggerService which provides logging functionality
 import { LoggerService } from './logger.service';
-import { UserModule } from '../user/user.module';
-import { UserService } from 'src/user/user.service';
 
+// Marks this module as a Global Module — services exported here will be available throughout the app
 @Global()
-@Module({})
+
+// Defines this class as a NestJS module
+@Module({}) // Currently no imports, controllers, or providers defined statically
 export class LoggerModule {
+  
+  // Static method to allow dynamic initialization of the module (commonly used for async config)
   static forRootAsync(): DynamicModule {
     return {
+      // Registers LoggerModule as the module to be initialized
       module: LoggerModule,
-      imports: [forwardRef(() => UserModule)],
+
+      // Defines dynamic providers that will be instantiated
       providers: [
         {
+          // Register LoggerService as a provider (dependency-injectable)
           provide: LoggerService,
-          inject: [UserService],
-          useFactory: async (userService) => {
-            await new Promise((res) => setTimeout(res, 50));
-            return new LoggerService('DEBUG', userService);
+
+          // Custom factory function to asynchronously create an instance of LoggerService
+          useFactory: async () => {
+            await new Promise((res) => setTimeout(res, 50)); // Simulates async setup delay (e.g., fetching config)
+            return new LoggerService('DEBUG'); // Instantiate LoggerService with logging level 'DEBUG'
           },
         },
       ],
+
+      // Exports LoggerService so it can be used in other modules that import LoggerModule
       exports: [LoggerService],
     };
   }
 }
-
