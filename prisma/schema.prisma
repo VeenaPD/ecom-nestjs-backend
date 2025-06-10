@@ -1,0 +1,68 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  // This is the correct output path for NestJS/TypeScript projects:
+  output   = "../node_modules/.prisma/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+
+// prisma/schema.prisma
+
+// Data model for a User in the e-commerce application.
+model User {
+  id        String    @id @default(uuid()) // Unique ID for the user ex: u1
+  email     String    @unique // User's email, must be unique
+  password  String // Hashed password
+  firstName String? // Optional first name
+  lastName  String? // Optional last name
+  role      Role      @default(USER) // User role (e.g., ADMIN, USER)
+  createdAt DateTime  @default(now()) // Timestamp for user creation
+  updatedAt DateTime  @updatedAt // Timestamp for last update
+
+  // Relationship to Category: A user can create many categories (e.g., for products they sell/manage)
+  // `Category` is the related model. `userId` is the foreign key in the Category model.
+  categories Category[] // A list of categories created by this user
+
+  @@map("users") // Maps this model to a "users" table in the database
+}
+
+
+// Enum for user roles
+enum Role {
+  USER
+  ADMIN
+  SELLER // Could be added for specific seller roles
+}
+
+// prisma/schema.prisma (continued)
+
+// Data model for a Product Category.
+model Category {
+  id        String    @id @default(uuid()) // Unique ID for the category
+  name      String    @unique // Category name, must be unique (e.g., "Electronics")
+  description String? // Optional description of the category
+  createdAt DateTime  @default(now()) // Timestamp for category creation
+  updatedAt DateTime  @updatedAt // Timestamp for last update
+
+  // Relationship to User: A category is created by one user.
+  // `User` is the related model. `userId` is the foreign key in this Category model.
+  userId    String // The ID of the user who created this category ex: u1
+  user      User      @relation(fields: [userId], references: [id]) // Defines the foreign key relationship
+
+  // Relationship to Product: A category can have many products.
+  // `Product` (hypothetical, will be added later)
+  // products Product[] // A list of products belonging to this category
+
+  @@map("categories") // Maps this model to a "categories" table
+}

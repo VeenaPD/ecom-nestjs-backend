@@ -1,5 +1,6 @@
 // Marks the service as injectable via NestJS dependency injection system
 import { Injectable } from '@nestjs/common';
+import { AppConfigService } from 'src/config/config.service';
 
 // Define a TypeScript interface to represent the shape of a Product object
 export interface Product {
@@ -10,12 +11,17 @@ export interface Product {
 }
 
 @Injectable() // Tells NestJS that this class can be injected into other components (like controllers)
-export class ProductsService {
+export class ProductService {
     // Local in-memory array to store products (mocking a database)
     private products: Product[] = [];
 
     // Counter to simulate auto-incrementing IDs (like a database would do)
     private idCounter = 1;
+
+    constructor(private readonly appConfigService: AppConfigService) {
+        // Example: Use config from AppConfigService
+        console.log(`[ProductService] Initialized. Product API Base URL: ${this.appConfigService.get('productApiBaseUrl')}`);
+    }
 
     /**
      * Create a new product entry

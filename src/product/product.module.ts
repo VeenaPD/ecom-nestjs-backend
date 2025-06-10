@@ -2,19 +2,21 @@
 import { Module } from '@nestjs/common';
 
 // Importing the service that contains the business logic
-import { ProductsService } from './products.service';
+import { ProductService } from './product.service';
 
 // Importing the controller that handles HTTP requests
-import { ProductsController } from './products.controller';
+import { ProductController } from './product.controller';
+import { AppConfigModule } from 'src/config/config.module';
 
 @Module({
+  imports: [AppConfigModule.forRootAsync()],
   // List of services (providers) this module will use and register in the DI container
-  providers: [ProductsService],
+  providers: [ProductService],
 
   // List of controllers this module owns; NestJS will map routes based on this
-  controllers: [ProductsController],
+  controllers: [ProductController],
 
   // Optional: Export the ProductsService so it can be used in other modules if needed
-  exports: [ProductsService],
+  exports: [ProductService],
 })
-export class ProductsModule { }
+export class ProductModule { }
