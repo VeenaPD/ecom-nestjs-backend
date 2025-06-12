@@ -4,24 +4,49 @@ import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, Category } from '@prisma/client'; // Import types from Prisma client
+import { TrimAndLowercasePipe } from 'src/shared/pipes/trim-and-lowercase/trim-and-lowercase.pipe';
 
 @Controller('users')
-@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true })) // Global validation pipe setup
+@UsePipes(new ValidationPipe({
+  whitelist: true,               // Strip properties not defined in DTO
+  forbidNonWhitelisted: true,    // Throw error if non-whitelisted properties exist
+  transform: true,               // Automatically transform payload to DTO instance
+  transformOptions: {
+    enableImplicitConversion: true // Convert primitive types (e.g., "123" to 123)
+  }
+}))
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(private readonly userService: UserService) { }
 
-  @Post()
-  @HttpCode(HttpStatus.CREATED) // Set HTTP status code for creation
-  async create(@Body() createUserDto: CreateUserDto): Promise<User> {
-    // In a real app, you'd hash the password here or in the service
-    const passwordHash = createUserDto.password; // For demo, assuming it's already hashed or handled
-    return this.userService.createUser(
-      createUserDto.email,
-      passwordHash,
+  // @Post()
+  // @HttpCode(HttpStatus.CREATED) // Set HTTP status code for creation
+  // async create(@Body() createUserDto: CreateUserDto): Promise<User> {
+  //   // In a real app, you'd hash the password here or in the service
+  //   const passwordHash = createUserDto.password; // For demo, assuming it's already hashed or handled
+  //   return this.userService.createUser(
+  //     createUserDto.email,
+  //     passwordHash,
+  //     createUserDto.firstName,
+  //     createUserDto.lastName,
+  //     createUserDto.role
+  //   );
+  // }
+
+  // NEW: User Registration Endpoint
+  @Post('register') // This will be POST /users/register
+  @HttpCode(HttpStatus.CREATED)
+  async register(@Body() createUserDto: CreateUserDto): Promise<User> {
+    // Pass the plain password to the service for hashing and creation
+    const registeredUser = await this.userService.registerUser(
+      createUserDto.email,  // This email will be pre-transformed by @Transform in DTO
+      createUserDto.password, // Plain password from DTO
       createUserDto.firstName,
       createUserDto.lastName,
-      createUserDto.role
+      createUserDto.role,
     );
+    // Remove sensitive data (like password hash) before sending response
+    const { password, ...result } = registeredUser;
+    return result as User; // Return user without password hash
   }
 
   @Get()
