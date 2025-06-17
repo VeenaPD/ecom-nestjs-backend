@@ -57,7 +57,9 @@ export class UserService {
                 },
             });
             console.log(`[UserService] Registered new user: ${user.email}`);
-            return user;
+            // ... return user (maybe without password for response)
+            const { password, ...result } = user;
+            return result as User;
         } catch (error) {
             // Catch potential database errors (e.g., unique constraint violations, though we checked above)
             console.error('[UserService] Failed to register user:', error.message);
@@ -75,20 +77,24 @@ export class UserService {
         return this.prisma.user.findMany();
     }
 
-    async findUserById(id: string): Promise<User | null> {
+    // IMPORTANT: This method must return the user object *including the hashed password*
+    // for AuthService to perform password comparison. Prisma does this by default.
+    async findUserByEmail(email: string): Promise<User | null> {
+        const user = await this.prisma.user.findUnique({
+            where: { email },
+        });
+        return user;
+    }
+
+    // IMPORTANT: This method also returns the full User object, including password.
+    // It's used by JwtStrategy to validate the user from the JWT payload.
+    async findUserById(id: string): Promise<User> {
         const user = await this.prisma.user.findUnique({
             where: { id },
         });
         if (!user) {
             throw new NotFoundException(`User with ID ${id} not found`);
         }
-        return user;
-    }
-
-    async findUserByEmail(email: string): Promise<User | null> {
-        const user = await this.prisma.user.findUnique({
-            where: { email },
-        });
         return user;
     }
 

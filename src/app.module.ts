@@ -7,6 +7,7 @@ import { LoggerModule } from './logger/logger.module';
 import { DatabaseModule } from './database/database.module';
 import { CategoryModule } from './category/category.module';
 import { AppConfigModule } from './config/config.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [ProductModule, 
@@ -14,7 +15,8 @@ import { AppConfigModule } from './config/config.module';
     LoggerModule.forRootAsync(), 
     DatabaseModule.forRootAsync(), // Initialize our configurable database module
     AppConfigModule.forRootAsync(),
-    CategoryModule],
+    CategoryModule,
+    AuthModule],
   controllers: [AppController],
   providers: [AppService],
 })
