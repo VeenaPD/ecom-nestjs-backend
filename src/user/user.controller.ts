@@ -4,8 +4,13 @@ import { UserService } from './user.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { User, Category } from '@prisma/client'; // Import types from Prisma client
-import { TrimAndLowercasePipe } from 'src/shared/pipes/trim-and-lowercase/trim-and-lowercase.pipe';
+// Import Swagger Decorators
+import {
+  ApiTags, ApiOperation, ApiResponse, ApiBody, ApiParam, ApiBadRequestResponse, ApiConflictResponse, ApiNotFoundResponse
+} from '@nestjs/swagger';
+import { UserProfileDto } from './dto/user-profile.dto';
 
+@ApiTags('users') // Group all user-related endpoints under 'users' tag
 @Controller('users')
 @UsePipes(new ValidationPipe({
   whitelist: true,               // Strip properties not defined in DTO
@@ -33,8 +38,14 @@ export class UserController {
   // }
 
   // NEW: User Registration Endpoint
+
   @Post('register') // This will be POST /users/register
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Register a new user account', description: 'Creates a new user with the provided email, password, and optional details. Hashes the password and checks for duplicate emails.' })
+  @ApiResponse({ status: 201, description: 'User successfully registered.', type: CreateUserDto }) // Type hint for response
+  @ApiBadRequestResponse({ description: 'Invalid input data.' }) // For validation errors
+  @ApiConflictResponse({ description: 'User with this email already exists.' }) // For duplicate email
+  @ApiBody({ type: CreateUserDto, description: 'Data for user registration' }) // Explicitly define request body
   async register(@Body() createUserDto: CreateUserDto): Promise<User> {
     // Pass the plain password to the service for hashing and creation
     const registeredUser = await this.userService.registerUser(
@@ -55,6 +66,10 @@ export class UserController {
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get user by ID', description: 'Retrieves a single user by their unique ID.' })
+  @ApiParam({ name: 'id', description: 'UUID of the user to retrieve', type: 'string', format: 'uuid' }) // Document param
+  @ApiResponse({ status: 200, description: 'The user found.', type: CreateUserDto })
+  @ApiNotFoundResponse({ description: 'User not found.' })
   async findOne(@Param('id') id: string): Promise<User | null> {
     return this.userService.findUserById(id);
   }
@@ -73,6 +88,31 @@ export class UserController {
   async remove(@Param('id') id: string): Promise<void> {
     await this.userService.deleteUser(id);
   }
+
+
+  @Put(':id/profile') // e.g., PUT /users/:id/profile
+  @ApiOperation({ summary: 'Update user profile', description: 'Updates a user\'s profile details, including an optional nested shipping address.' })
+  @ApiParam({ name: 'id', description: 'UUID of the user whose profile is being updated', type: 'string', format: 'uuid' })
+  @ApiBody({ type: UserProfileDto, description: 'User profile data, including optional shipping address' })
+  @ApiResponse({ status: 200, description: 'User profile updated successfully.', type: UserProfileDto }) // Assuming response structure is similar
+  @ApiBadRequestResponse({ description: 'Invalid input data for profile or address.' })
+  @ApiNotFoundResponse({ description: 'User not found.' })
+  async updateProfile(
+    @Param('id') id: string,
+    @Body() userProfileDto: UserProfileDto,
+  ): Promise<any> { // Change 'any' to a proper response type if you define one
+    console.log(`Updating profile for user ID: ${id}`);
+    console.log('Received profile data:', userProfileDto);
+
+    // In a real scenario, you'd use your UserService to update the user record
+    // based on userProfileDto. You'd likely fetch the user first, then update fields.
+    // Example:
+    // const updatedUser = await this.userService.updateUserProfile(id, userProfileDto);
+    // return updatedUser;
+
+    return { message: 'Profile data received and validated', data: userProfileDto };
+  }
+
 
   // --- Relationship Endpoints ---
 

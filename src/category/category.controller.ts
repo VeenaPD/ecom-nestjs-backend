@@ -3,7 +3,10 @@ import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { Category, User } from '@prisma/client'; // Import types from Prisma client
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBody, ApiConflictResponse, ApiNotFoundResponse, ApiBearerAuth } from '@nestjs/swagger'; // Import Swagger Decorators
 
+@ApiTags('categories') // Group all category-related endpoints
+@ApiBearerAuth('access-token') // Reference the scheme defined in main.ts
 @Controller('categories')
 @UsePipes(new ValidationPipe({ 
   whitelist: true, // Strip properties not defined in DTO
@@ -14,6 +17,11 @@ export class CategoryController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a new category', description: 'Adds a new product category to the system.' })
+  @ApiResponse({ status: 201, description: 'Category successfully created.', type: CreateCategoryDto })
+  @ApiConflictResponse({ description: 'Category with this name already exists.' })
+  @ApiBody({ type: CreateCategoryDto, description: 'Data for creating a category' })
+  // @UseGuards(AuthGuard('jwt')) // You'd typically have an AuthGuard here
   async create(@Body() createCategoryDto: CreateCategoryDto): Promise<Category> {
     return this.categoryService.createCategory(
       createCategoryDto.name,
@@ -23,11 +31,17 @@ export class CategoryController {
   }
 
   @Get()
+  @ApiOperation({ summary: 'Get all categories', description: 'Retrieves a list of all product categories.' })
+  @ApiResponse({ status: 200, description: 'List of categories.', type: [CreateCategoryDto] })
   async findAll(): Promise<Category[]> {
     return this.categoryService.findAllCategories();
   }
 
   @Get(':id')
+  @ApiOperation({ summary: 'Get category by ID', description: 'Retrieves a single category by its unique ID.' })
+  @ApiParam({ name: 'id', description: 'UUID of the category to retrieve', type: 'string', format: 'uuid' })
+  @ApiResponse({ status: 200, description: 'The category found.', type: CreateCategoryDto })
+  @ApiNotFoundResponse({ description: 'Category not found.' })
   async findOne(@Param('id') id: string): Promise<Category | null> {
     return this.categoryService.findCategoryById(id);
   }
