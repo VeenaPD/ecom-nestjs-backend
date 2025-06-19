@@ -7,9 +7,11 @@ import { ProductService } from './product.service';
 // Importing the controller that handles HTTP requests
 import { ProductController } from './product.controller';
 import { AppConfigModule } from 'src/config/config.module';
+import { DatabaseModule } from 'src/database/database.module';
+import { CaslModule } from 'src/casl/casl.module';
 
 @Module({
-  imports: [AppConfigModule.forRootAsync()],
+  imports: [AppConfigModule.forRootAsync(), DatabaseModule.forRootAsync(), CaslModule],
   // List of services (providers) this module will use and register in the DI container
   providers: [ProductService],
 

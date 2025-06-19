@@ -6,7 +6,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { User, Category, Role } from '@prisma/client'; // Import types from Prisma client
 // Import Swagger Decorators
 import {
-  ApiTags, ApiOperation, ApiResponse, ApiBody, ApiParam, ApiBadRequestResponse, ApiConflictResponse, ApiNotFoundResponse,
+  ApiTags, ApiOperation,
+  ApiResponse, ApiBody, ApiParam, ApiBadRequestResponse, ApiConflictResponse, ApiNotFoundResponse,
   ApiBearerAuth,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse
@@ -15,11 +16,17 @@ import { UserProfileDto } from './dto/user-profile.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from 'src/shared/guards/roles.guard';
 import { Roles } from 'src/shared/decorators/roles.decorator';
+import { AppAbility, CaslAbilityFactory } from 'src/casl/casl-ability.factory';
+import { AbilitiesGuard } from 'src/shared/guards/abilities.guard';
+import { CheckAbilities } from 'src/shared/decorators/abilities.decorator';
+import { Action } from 'src/shared/enum/action.enum';
 
 @ApiTags('users') // Group all user-related endpoints under 'users' tag
 @Controller('users')
 export class UserController {
-  constructor(private readonly userService: UserService) { }
+  constructor(private readonly userService: UserService,
+    private readonly caslAbilityFactory: CaslAbilityFactory, // <-- Inject CaslAbilityFactory
+  ) { }
 
   // @Post()
   // @HttpCode(HttpStatus.CREATED) // Set HTTP status code for creation
@@ -70,8 +77,10 @@ export class UserController {
   @ApiResponse({ status: 200, description: 'List of users.', type: [CreateUserDto] })
   @ApiUnauthorizedResponse({ description: 'Unauthorized access.' })
   @ApiForbiddenResponse({ description: 'Forbidden: Requires Admin role.' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard) // <-- First authenticate, then authorize roles
-  @Roles(Role.ADMIN) // <-- Only ADMIN role can access
+  // @UseGuards(AuthGuard('jwt'), RolesGuard) // <-- First authenticate, then authorize roles
+  // @Roles(Role.ADMIN) // <-- Only ADMIN role can access
+  @UseGuards(AuthGuard('jwt'), AbilitiesGuard)
+  @CheckAbilities((ability: AppAbility) => ability.can(Action.Read, 'all')) // Check if user can read 'all' subjects
   async findAll(): Promise<User[]> {
     return this.userService.findAllUsers();
   }
@@ -96,14 +105,26 @@ export class UserController {
   @ApiNotFoundResponse({ description: 'User not found.' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized access.' })
   @ApiForbiddenResponse({ description: 'Forbidden: Requires Admin role or accessing own profile.' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN, Role.USER) // Allowing ADMIN or USER to potentially access (guard will do the detailed check)
+  // @UseGuards(AuthGuard('jwt'), RolesGuard)
+  // @Roles(Role.ADMIN, Role.USER) // Allowing ADMIN or USER to potentially access (guard will do the detailed check)
+  @UseGuards(AuthGuard('jwt'), AbilitiesGuard)
+  // Policy to check if user can Read 'User' subject (generic check)
+  @CheckAbilities((ability: AppAbility) => ability.can(Action.Read, 'User'))
   async findOne(@Param('id') id: string, @Request() req: { user: User }): Promise<User> {
     // Implement self-access logic here if not ADMIN
-    if (req.user.role !== Role.ADMIN && req.user.id !== id) {
-      throw new ForbiddenException('You can only view your own profile unless you are an Admin.');
+    // if (req.user.role !== Role.ADMIN && req.user.id !== id) {
+    //   throw new ForbiddenException('You can only view your own profile unless you are an Admin.');
+    // }
+    // return this.userService.findUserById(id);
+
+    const userToView = await this.userService.findUserById(id); // Fetch the user instance
+
+    // Perform the specific, instance-based permission check
+    const ability = this.caslAbilityFactory.createForUser(req.user);
+    if (!ability.can(Action.Read, userToView)) {
+      throw new ForbiddenException('You do not have permission to view this user.');
     }
-    return this.userService.findUserById(id);
+    return userToView;
   }
 
   @Get(':email/userinfo')
@@ -132,20 +153,34 @@ export class UserController {
   @ApiNotFoundResponse({ description: 'User not found.' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized access.' })
   @ApiForbiddenResponse({ description: 'Forbidden: Requires Admin role or updating own profile.' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN, Role.USER) // Allowing ADMIN or USER
+  // @UseGuards(AuthGuard('jwt'), RolesGuard)
+  // @Roles(Role.ADMIN, Role.USER) // Allowing ADMIN or USER
+  @UseGuards(AuthGuard('jwt'), AbilitiesGuard)
+  // Policy to check if user can Update 'User' subject (generic check)
+  @CheckAbilities((ability: AppAbility) => ability.can(Action.Update, 'User'))
   async updateProfile(
     @Param('id') id: string,
     @Body() userProfileDto: UserProfileDto,
     @Request() req: { user: User }
   ): Promise<any> {
-    // Implement self-access logic here
-    if (req.user.role !== Role.ADMIN && req.user.id !== id) {
-      throw new ForbiddenException('You can only update your own profile unless you are an Admin.');
+    // // Implement self-access logic here
+    // if (req.user.role !== Role.ADMIN && req.user.id !== id) {
+    //   throw new ForbiddenException('You can only update your own profile unless you are an Admin.');
+    // }
+    // // Implement actual update logic in UserService
+    // // return this.userService.updateUserProfile(id, userProfileDto);
+    // return { message: 'Profile data received and validated', data: userProfileDto };
+
+    const userToUpdate = await this.userService.findUserById(id); // Fetch the user instance
+
+    // Perform the specific, instance-based permission check
+    const ability = this.caslAbilityFactory.createForUser(req.user);
+    if (!ability.can(Action.Update, userToUpdate)) {
+      throw new ForbiddenException('You do not have permission to update this user.');
     }
-    // Implement actual update logic in UserService
-    // return this.userService.updateUserProfile(id, userProfileDto);
-    return { message: 'Profile data received and validated', data: userProfileDto };
+
+    // Call your userService method to update the profile
+    return this.userService.updateUser(id, userProfileDto); // Assuming updateUser handles profile updates
   }
 
 
@@ -165,8 +200,10 @@ export class UserController {
   @ApiNotFoundResponse({ description: 'User not found.' })
   @ApiUnauthorizedResponse({ description: 'Unauthorized access.' })
   @ApiForbiddenResponse({ description: 'Forbidden: Requires Admin role.' })
-  @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN) // Only ADMIN role can access
+  // @UseGuards(AuthGuard('jwt'), RolesGuard)
+  // @Roles(Role.ADMIN) // Only ADMIN role can access
+  @UseGuards(AuthGuard('jwt'), AbilitiesGuard)
+  @CheckAbilities((ability: AppAbility) => ability.can(Action.Delete, 'User')) // Check if user can Delete a 'User'
   async remove(@Param('id') id: string): Promise<void> {
     await this.userService.deleteUser(id);
   }

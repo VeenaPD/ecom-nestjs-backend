@@ -4,6 +4,8 @@ import { AuthService } from './auth.service';
 import { LoginUserDto } from './dto/login-user.dto';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiUnauthorizedResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { User } from '@prisma/client';
+import { TokensResponseDto } from './dto/tokens-response.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -17,15 +19,35 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Login successful, returns access token.',
-    schema: { example: { accessToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' } }
+    type: TokensResponseDto
   })
   @ApiUnauthorizedResponse({ description: 'Invalid credentials (email or password).' })
   // Use AuthGuard('local') to trigger the LocalStrategy for authentication
   @UseGuards(AuthGuard('local'))
-  async login(@Request() req: { user: User }): Promise<{ accessToken: string }> {
+  async login(@Body() loginUserDto: LoginUserDto): Promise<TokensResponseDto> {
     // If we reach here, LocalStrategy has successfully validated the user.
-    // The user object (without password) is now available on req.user.
-    return this.authService.login(req.user);
+    return this.authService.login(loginUserDto);
+  }
+
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Refresh access token using a refresh token' })
+  @ApiBody({ type: RefreshTokenDto, description: 'Refresh token to get a new access token' })
+  @ApiResponse({ status: 200, description: 'New access token issued.', type: TokensResponseDto })
+  @ApiUnauthorizedResponse({ description: 'Invalid or expired refresh token.' })
+  async refreshTokens(@Body() refreshTokenDto: RefreshTokenDto): Promise<TokensResponseDto> {
+    return this.authService.refreshToken(refreshTokenDto.refreshToken);
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth('access-token') // Assuming logout might require access token for user context
+  @ApiOperation({ summary: 'Logout user and invalidate refresh token' })
+  @ApiResponse({ status: 204, description: 'User successfully logged out.' })
+  @ApiUnauthorizedResponse({ description: 'Unauthorized access.' })
+  @UseGuards(AuthGuard('jwt')) // Protect this endpoint
+  async logout(@Request() req: { user: User }, @Body() refreshTokenDto: RefreshTokenDto): Promise<void> {
+    await this.authService.logout(req.user.id, refreshTokenDto.refreshToken);
   }
 
   @Get('profile')

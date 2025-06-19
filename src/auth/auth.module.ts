@@ -7,15 +7,17 @@ import { LocalStrategy } from './strategies/local.strategy';
 import { AuthController } from './auth.controller';
 import { jwtConstants } from './constants';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { DatabaseModule } from 'src/database/database.module';
 
 @Module({
   imports: [
     // ForwardRef is needed if UserModule also imports AuthModule (circular dependency)
     forwardRef(() => UserModule), // For UserService dependency in AuthService/JwtStrategy
+    DatabaseModule.forRootAsync(),
     PassportModule, // Provides AuthGuard for different strategies
     JwtModule.register({
       secret: jwtConstants.secret, // Your JWT secret
-      signOptions: { expiresIn: '60m' }, // Token expiration time (e.g., 1 hour)
+      signOptions: { expiresIn: jwtConstants.expirationTime }, // Token expiration time (e.g., 1 hour)
     }),
   ],  
   providers: [AuthService, LocalStrategy, JwtStrategy],

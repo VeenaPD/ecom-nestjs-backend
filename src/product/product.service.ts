@@ -1,97 +1,74 @@
-// Marks the service as injectable via NestJS dependency injection system
-import { Injectable } from '@nestjs/common';
-import { AppConfigService } from 'src/config/config.service';
+// src/product/product.service.ts (UPDATED)
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../database/prisma.service';
+import { Product, Prisma } from '@prisma/client';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
 
-// Define a TypeScript interface to represent the shape of a Product object
-export interface Product {
-    id: number;           // Unique identifier
-    name: string;         // Product name
-    price: number;        // Product price
-    description: string;  // Description of the product
-}
-
-@Injectable() // Tells NestJS that this class can be injected into other components (like controllers)
+@Injectable()
 export class ProductService {
-    // Local in-memory array to store products (mocking a database)
-    private products: Product[] = [];
+  constructor(private prisma: PrismaService) {}
 
-    // Counter to simulate auto-incrementing IDs (like a database would do)
-    private idCounter = 1;
+  async createProduct(
+    createProductDto: CreateProductDto,
+    authorId: string, // <-- Added authorId
+  ): Promise<Product> {
+    return this.prisma.product.create({
+      data: {
+        ...createProductDto,
+        price: new Prisma.Decimal(createProductDto.price),
+        authorId, // <-- Assign the authorId
+      },
+    });
+  }
 
-    constructor(private readonly appConfigService: AppConfigService) {
-        // Example: Use config from AppConfigService
-        console.log(`[ProductService] Initialized. Product API Base URL: ${this.appConfigService.get('productApiBaseUrl')}`);
+  async findAllProducts(): Promise<Product[]> {
+    return this.prisma.product.findMany({ include: { category: true, author: true } });
+  }
+
+  async findProductById(id: string): Promise<Product> {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      include: { category: true, author: true },
+    });
+    if (!product) {
+      throw new NotFoundException(`Product with ID ${id} not found.`);
     }
+    return product;
+  }
 
-    /**
-     * Create a new product entry
-     * @param product - Product data without the ID
-     * Omit<Product, 'id'> removes `id` key from the Product type
-     */
-    create(product: Omit<Product, 'id'>): Product {
-        // Creates a new product by generating an id and combining it with input data
-        const newProduct = { id: this.idCounter++, ...product };
-
-        // Stores the new product in the local array
-        this.products.push(newProduct);
-
-        // Returns the created product
-        return newProduct;
+  async updateProduct(
+    id: string,
+    updateProductDto: UpdateProductDto,
+  ): Promise<Product> {
+    try {
+      return await this.prisma.product.update({
+        where: { id },
+        data: {
+          ...updateProductDto,
+          price: updateProductDto.price
+            ? new Prisma.Decimal(updateProductDto.price)
+            : undefined,
+        },
+      });
+    } catch (error) {
+      if (error.code === 'P2025') {
+        throw new NotFoundException(`Product with ID ${id} not found.`);
+      }
+      throw error;
     }
+  }
 
-    /**
-     * Returns all products
-     */
-    findAll(): Product[] {
-        return this.products;
+  async deleteProduct(id: string): Promise<Product> {
+    try {
+      return await this.prisma.product.delete({
+        where: { id },
+      });
+    } catch (error) {
+      if (error.code === 'P2025') {
+        throw new NotFoundException(`Product with ID ${id} not found.`);
+      }
+      throw error;
     }
-
-    /**
-     * Finds a single product by its ID
-     * @param id - Product ID
-     * @returns the product if found, otherwise undefined
-     */
-    findOne(id: number): Product | undefined {
-        // Uses Array.prototype.find to locate product by ID
-        return this.products.find((p) => p.id === id);
-    }
-
-    /**
-     * Updates an existing product
-     * @param id - Product ID
-     * @param update - Partial product data (not all fields required)
-     * @returns updated product or null if not found
-     */
-    update(id: number, update: Partial<Product>): Product | null {
-        // Find the index of the product to update
-        const index = this.products.findIndex((p) => p.id === id);
-
-        // If product not found, return null
-        if (index === -1) return null;
-
-        // Merge existing product with update fields
-        this.products[index] = { ...this.products[index], ...update };
-
-        // Return the updated product
-        return this.products[index];
-    }
-
-    /**
-     * Deletes a product by ID
-     * @param id - Product ID
-     * @returns true if deletion succeeded, false if not found
-     */
-    delete(id: number): boolean {
-        // Find index of the product to delete
-        const index = this.products.findIndex((p) => p.id === id);
-
-        // If not found, return false
-        if (index === -1) return false;
-
-        // Remove the product from array using splice
-        this.products.splice(index, 1);
-
-        // Indicate deletion was successful
-        return true;
-    }
+  }
 }

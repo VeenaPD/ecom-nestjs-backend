@@ -2,8 +2,9 @@ import { IsString, IsOptional, IsPhoneNumber, ValidateNested } from 'class-valid
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { AddressDto } from 'src/shared/dto/address.dto';
+import { UpdateUserDto } from './update-user.dto';
 
-export class UserProfileDto {
+export class UserProfileDto extends UpdateUserDto {
   @ApiPropertyOptional({ description: 'A short biography of the user', example: 'Passionate developer and avid reader.' })
   @IsOptional()
   @IsString()

@@ -10,11 +10,12 @@ import { UserController } from './user.controller';
 // Importing the LoggerModule so this module can use LoggerService
 import { LoggerModule } from 'src/logger/logger.module';
 import { DatabaseModule } from 'src/database/database.module';
+import { CaslModule } from 'src/casl/casl.module';
 
 @Module({
   // `imports` allows this module to use functionality (like services) from other modules
   // `forwardRef` is needed if LoggerModule also imports UserModule (to resolve circular dependency)
-  imports: [forwardRef(() => LoggerModule), DatabaseModule.forRootAsync()],
+  imports: [forwardRef(() => LoggerModule), DatabaseModule.forRootAsync(), CaslModule],
 
   // Registers providers (usually services) that are part of this module
   providers: [UserService], // This makes UserService available for DI within this module

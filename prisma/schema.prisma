@@ -30,9 +30,14 @@ model User {
   createdAt DateTime  @default(now()) // Timestamp for user creation
   updatedAt DateTime  @updatedAt // Timestamp for last update
 
+  // Add the inverse relation field here:
+  refreshTokens RefreshToken[] 
   // Relationship to Category: A user can create many categories (e.g., for products they sell/manage)
   // `Category` is the related model. `userId` is the foreign key in the Category model.
   categories Category[] // A list of categories created by this user
+
+   // Add relation for products authored by this user
+  products  Product[] // This is the missing back-reference!
 
   @@map("users") // Maps this model to a "users" table in the database
 }
@@ -62,7 +67,40 @@ model Category {
 
   // Relationship to Product: A category can have many products.
   // `Product` (hypothetical, will be added later)
-  // products Product[] // A list of products belonging to this category
+  products Product[] // A list of products belonging to this category
 
   @@map("categories") // Maps this model to a "categories" table
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  price       Decimal
+  stock       Int      @default(0)
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  categoryId  String
+  category    Category  @relation(fields: [categoryId], references: [id])
+
+
+  // New: Link product to a user (the author/seller)
+  authorId    String   @map("author_id") // Foreign key to User
+  author      User     @relation(fields: [authorId], references: [id])
+
+  @@map("products")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique // The refresh token string itself
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime // When this refresh token expires
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  revoked   Boolean  @default(false) // To allow immediate revocation
+
+  @@index([userId]) // Index for faster lookup by user
 }

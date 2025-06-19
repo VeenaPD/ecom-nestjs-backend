@@ -1,61 +1,118 @@
-// Importing decorators and utilities from NestJS common package
 import {
-    Controller,       // Marks the class as a controller to handle incoming requests
-    Get,              // Decorator for HTTP GET endpoint
-    Post,             // Decorator for HTTP POST endpoint
-    Param,            // Extracts route parameters
-    Put,              // Decorator for HTTP PUT endpoint
-    Delete,           // Decorator for HTTP DELETE endpoint
-    Body,             // Extracts request body
-    ParseIntPipe,     // Pipes used to automatically convert and validate route params
+    Controller, Get, Post, Body, Param, Put, Delete, UsePipes, ValidationPipe, HttpCode, HttpStatus,
+    UseGuards, Request, ForbiddenException // <-- Import UseGuards, Request, ForbiddenException
 } from '@nestjs/common';
+import { ProductService } from './product.service';
+import { CreateProductDto } from './dto/create-product.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { Product, User } from '@prisma/client';
 
-// Importing Product type and ProductService
-import { Product, ProductService } from './product.service';
+// Import Auth/AuthZ related decorators/guards
+import { ApiBearerAuth, ApiForbiddenResponse, ApiNotFoundResponse, ApiOperation, ApiResponse, ApiTags, ApiUnauthorizedResponse, ApiBody, ApiParam, ApiBadRequestResponse, ApiConflictResponse } from '@nestjs/swagger';
+import { AuthGuard } from '@nestjs/passport'; // For JWT authentication
+import { AbilitiesGuard } from '../shared/guards/abilities.guard'; // Your CASL guard
+import { CheckAbilities } from '../shared/decorators/abilities.decorator'; // Your CASL decorator
+import { Action } from '../shared/enum/action.enum'; // Your Action enum
+import { AppAbility, CaslAbilityFactory } from '../casl/casl-ability.factory'; // For injecting CaslAbilityFactory
 
-
-// Decorator to define the route prefix. All routes will be prefixed with /products
+@ApiTags('products')
 @Controller('products')
+@UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }))
 export class ProductController {
-    // Injecting ProductService via constructor-based dependency injection
-    constructor(private readonly productService: ProductService) { }
+    constructor(
+        private readonly productService: ProductService,
+        private readonly caslAbilityFactory: CaslAbilityFactory, // <-- Inject CaslAbilityFactory
+    ) { }
 
-    // Handles POST /products
+    // Create Product: Only Admins can create products
     @Post()
-    create(
-        @Body() product: Omit<Product, 'id'>, // Extracts the body and ensures it doesn't include `id` (usually auto-generated)
-    ) {
-        return this.productService.create(product); // Calls service method to create a product
+    @HttpCode(HttpStatus.CREATED)
+    @ApiBearerAuth('access-token')
+    @ApiOperation({ summary: 'Create a new product (Admin only)', description: 'Adds a new product to the system. Requires Admin role.' })
+    @ApiResponse({ status: 201, description: 'Product successfully created.', type: CreateProductDto })
+    @ApiUnauthorizedResponse({ description: 'Unauthorized access.' })
+    @ApiForbiddenResponse({ description: 'Forbidden: Requires Admin role.' })
+    @ApiBadRequestResponse({ description: 'Invalid input data.' })
+    @ApiBody({ type: CreateProductDto, description: 'Data for creating a product' })
+    @UseGuards(AuthGuard('jwt'), AbilitiesGuard) // First auth, then check abilities
+    @CheckAbilities((ability: AppAbility) => ability.can(Action.Create, 'Product')) // Checks if user can 'create' a 'Product'
+    async create(@Body() createProductDto: CreateProductDto, @Request() req: { user: User }): Promise<Product> {
+        // Pass the authorId from the authenticated user
+        return this.productService.createProduct(createProductDto, req.user.id);
     }
 
-    // Handles GET /products
+    // Get All Products: Publicly accessible
     @Get()
-    findAll() {
-        return this.productService.findAll(); // Calls service method to fetch all products
+    @ApiOperation({ summary: 'Get all products', description: 'Retrieves a list of all products.' })
+    @ApiResponse({ status: 200, description: 'List of products.', type: [CreateProductDto] })
+    async findAll(): Promise<Product[]> {
+        return this.productService.findAllProducts();
     }
 
-    // Handles GET /products/:id
+    // Get Product by ID: Publicly accessible
     @Get(':id')
-    findOne(
-        @Param('id', ParseIntPipe) id: number, // Extracts `id` from route and parses it into a number
-    ) {
-        return this.productService.findOne(id); // Calls service method to fetch one product by ID
+    @ApiOperation({ summary: 'Get product by ID', description: 'Retrieves a single product by its unique ID.' })
+    @ApiParam({ name: 'id', description: 'UUID of the product to retrieve', type: 'string', format: 'uuid' })
+    @ApiResponse({ status: 200, description: 'The product found.', type: CreateProductDto })
+    @ApiNotFoundResponse({ description: 'Product not found.' })
+    async findOne(@Param('id') id: string): Promise<Product> {
+        return this.productService.findProductById(id);
     }
 
-    // Handles PUT /products/:id
+    // Update Product: Admin can update any. User can update their OWN.
     @Put(':id')
-    update(
-        @Param('id', ParseIntPipe) id: number, // Route param converted to number
-        @Body() update: Partial<Product>,      // Request body can contain a partial Product object
-    ) {
-        return this.productService.update(id, update); // Calls service method to update the product
+    @ApiBearerAuth('access-token')
+    @ApiOperation({ summary: 'Update product (Admin or Owner)', description: 'Updates an existing product by ID. Requires Admin role or ownership.' })
+    @ApiParam({ name: 'id', description: 'UUID of the product to update', type: 'string', format: 'uuid' })
+    @ApiBody({ type: UpdateProductDto, description: 'Data for updating a product' })
+    @ApiResponse({ status: 200, description: 'Product successfully updated.', type: UpdateProductDto })
+    @ApiNotFoundResponse({ description: 'Product not found.' })
+    @ApiUnauthorizedResponse({ description: 'Unauthorized access.' })
+    @ApiForbiddenResponse({ description: 'Forbidden: You do not have permission to update this product.' })
+    @UseGuards(AuthGuard('jwt'), AbilitiesGuard)
+    // Policy handler function to check if user *can* update a Product (generic check)
+    @CheckAbilities((ability: AppAbility) => ability.can(Action.Update, 'Product'))
+    async update(
+        @Param('id') id: string,
+        @Body() updateProductDto: UpdateProductDto,
+        @Request() req: { user: User } // To get user for ownership check
+    ): Promise<Product> {
+        const productToUpdate = await this.productService.findProductById(id); // Fetch the product instance
+
+        // Perform the specific, instance-based permission check
+        const ability = this.caslAbilityFactory.createForUser(req.user);
+        if (!ability.can(Action.Update, productToUpdate)) {
+            throw new ForbiddenException('You do not have permission to update this product.');
+        }
+
+        return this.productService.updateProduct(id, updateProductDto);
     }
 
-    // Handles DELETE /products/:id
+    // Delete Product: Admin can delete any. User can delete their OWN.
     @Delete(':id')
-    delete(
-        @Param('id', ParseIntPipe) id: number, // Route param parsed to number
-    ) {
-        return this.productService.delete(id); // Calls service method to delete the product
+    @HttpCode(HttpStatus.NO_CONTENT)
+    @ApiBearerAuth('access-token')
+    @ApiOperation({ summary: 'Delete product (Admin or Owner)', description: 'Deletes a product by ID. Requires Admin role or ownership.' })
+    @ApiParam({ name: 'id', description: 'UUID of the product to delete', type: 'string', format: 'uuid' })
+    @ApiResponse({ status: 204, description: 'Product successfully deleted.' })
+    @ApiNotFoundResponse({ description: 'Product not found.' })
+    @ApiUnauthorizedResponse({ description: 'Unauthorized access.' })
+    @ApiForbiddenResponse({ description: 'Forbidden: You do not have permission to delete this product.' })
+    @UseGuards(AuthGuard('jwt'), AbilitiesGuard)
+    // Policy handler function to check if user *can* delete a Product (generic check)
+    @CheckAbilities((ability: AppAbility) => ability.can(Action.Delete, 'Product'))
+    async remove(
+        @Param('id') id: string,
+        @Request() req: { user: User }
+    ): Promise<void> {
+        const productToDelete = await this.productService.findProductById(id); // Fetch the product instance
+
+        // Perform the specific, instance-based permission check
+        const ability = this.caslAbilityFactory.createForUser(req.user);
+        if (!ability.can(Action.Delete, productToDelete)) {
+            throw new ForbiddenException('You do not have permission to delete this product.');
+        }
+
+        await this.productService.deleteProduct(id);
     }
 }

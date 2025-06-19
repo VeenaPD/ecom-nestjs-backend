@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module';
 import { CategoryModule } from './category/category.module';
 import { AppConfigModule } from './config/config.module';
 import { AuthModule } from './auth/auth.module';
+import { CaslModule } from './casl/casl.module';
 
 @Module({
   imports: [ProductModule, 
@@ -16,7 +17,8 @@ import { AuthModule } from './auth/auth.module';
     DatabaseModule.forRootAsync(), // Initialize our configurable database module
     AppConfigModule.forRootAsync(),
     CategoryModule,
-    AuthModule],
+    AuthModule,
+    CaslModule],
   controllers: [AppController],
   providers: [AppService],
 })
