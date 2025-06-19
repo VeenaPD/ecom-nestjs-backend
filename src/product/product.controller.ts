@@ -1,6 +1,7 @@
 import {
     Controller, Get, Post, Body, Param, Put, Delete, UsePipes, ValidationPipe, HttpCode, HttpStatus,
-    UseGuards, Request, ForbiddenException // <-- Import UseGuards, Request, ForbiddenException
+    UseGuards, Request, ForbiddenException, // <-- Import UseGuards, Request, ForbiddenException
+    UseInterceptors
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -14,6 +15,7 @@ import { AbilitiesGuard } from '../shared/guards/abilities.guard'; // Your CASL 
 import { CheckAbilities } from '../shared/decorators/abilities.decorator'; // Your CASL decorator
 import { Action } from '../shared/enum/action.enum'; // Your Action enum
 import { AppAbility, CaslAbilityFactory } from '../casl/casl-ability.factory'; // For injecting CaslAbilityFactory
+import { CacheInterceptor, CacheKey, CacheTTL } from '@nestjs/cache-manager';
 
 @ApiTags('products')
 @Controller('products')
@@ -45,7 +47,11 @@ export class ProductController {
     @Get()
     @ApiOperation({ summary: 'Get all products', description: 'Retrieves a list of all products.' })
     @ApiResponse({ status: 200, description: 'List of products.', type: [CreateProductDto] })
+    @UseInterceptors(CacheInterceptor) // <--- Apply CacheInterceptor here
+    @CacheKey('all_products') // <--- Optional: Define a specific key for this cache entry
+    @CacheTTL(60000) // <--- Optional: Set TTL for this specific route (in seconds)
     async findAll(): Promise<Product[]> {
+        console.log(`[Product Controller] findAll called`);
         return this.productService.findAllProducts();
     }
 
