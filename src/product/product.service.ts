@@ -23,6 +23,7 @@ export class ProductService {
   }
 
   async findAllProducts(): Promise<Product[]> {
+    console.log(`[ProductService] findAllProducts called`);
     return this.prisma.product.findMany({ include: { category: true, author: true } });
   }
 
