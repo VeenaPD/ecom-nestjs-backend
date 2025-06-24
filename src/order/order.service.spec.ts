@@ -1,15 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CaslAbilityFactory } from './casl-ability.factory';
+import { OrderService } from './order.service';
 
-describe('CaslService', () => {
-  let service: CaslAbilityFactory;
+describe('OrderService', () => {
+  let service: OrderService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      providers: [CaslAbilityFactory],
+      providers: [OrderService],
     }).compile();
 
-    service = module.get<CaslAbilityFactory>(CaslAbilityFactory);
+    service = module.get<OrderService>(OrderService);
   });
 
   it('should be defined', () => {

@@ -1,11 +1,24 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { AppConfigService } from './config/config.service';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, VERSION_NEUTRAL, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Enable API Versioning
+  // Choose your strategy here:
+  app.enableVersioning({
+    type: VersioningType.URI,
+    prefix: 'v',
+
+    // type: VersioningType.HEADER, 
+    // header: 'X-API-Version', 
+
+    // defaultVersion: '1',
+    defaultVersion: VERSION_NEUTRAL
+  });
 
   // Enable CORS
   app.enableCors();

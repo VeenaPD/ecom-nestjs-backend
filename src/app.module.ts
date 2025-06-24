@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ProductModule } from './product/product.module';
@@ -15,6 +15,9 @@ import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { RolesGuard } from './shared/guards/roles.guard';
 import * as Joi from 'joi';
 import { LoggingInterceptor } from './shared/interceptors/logging.interceptor';
+import { LoggerMiddleware } from './shared/middleware/logger.middleware';
+import { OrderModule } from './order/order.module';
+import { ProductController } from './product/product.controller';
 
 @Module({
   imports: [
@@ -41,17 +44,32 @@ import { LoggingInterceptor } from './shared/interceptors/logging.interceptor';
     AppConfigModule.forRootAsync(),
     CategoryModule,
     AuthModule,
-    CaslModule],
+    CaslModule,
+    OrderModule],
   controllers: [AppController],
-  providers: [AppService, {
+  providers: [AppService, 
+    {
     provide: APP_GUARD,
     useClass: RolesGuard, // Apply RolesGuard globally
   },
-  {
-    // <--- ADD THIS FOR GLOBAL LOGGING INTERCEPTOR
-    provide: APP_INTERCEPTOR,
-    useClass: LoggingInterceptor,
-  }
+    {
+      // <--- ADD THIS FOR GLOBAL LOGGING INTERCEPTOR
+      provide: APP_INTERCEPTOR,
+      useClass: LoggingInterceptor,
+    }
   ],
 })
-export class AppModule { }
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    // If you run your application (npm run start:dev) and make any request 
+    // (e.g., to /products or /auth/login), you'll see logs in your terminal for both the start and end of the request, 
+    // including the time it took. This is invaluable for identifying slow requests and understanding your API traffic."
+    consumer
+      .apply(LoggerMiddleware) // Apply the middleware class
+      .forRoutes('*'); // Apply to all routes in this module (i.e., globally because it's AppModule)
+    // You could also specify controllers or methods:
+    // .forRoutes(ProductController); // Apply to specific controllers
+    // .forRoutes({ path: 'auth/*', method: RequestMethod.POST }); // Apply to specific paths/methods
+  }
+
+}
