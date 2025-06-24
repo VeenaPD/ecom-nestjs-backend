@@ -7,6 +7,10 @@ interface AppConfig {
   environment: string;
   databaseUrl: string;
   productApiBaseUrl: string;
+  jwtAccessTokenSecret: string;
+  jwtAccessTokenExp: string;
+  jwtRefreshAccessTokenSecret: string;
+  jwtRefreshAccessTokenExp: string;
 }
 
 @Injectable()
@@ -20,6 +24,10 @@ export class AppConfigService {
       environment: this.nestConfigService.get<string>('NODE_ENV', 'development'),
       databaseUrl: this.nestConfigService.get<string>('DATABASE_URL', 'postgresql://postgres:1234567@localhost:5432/ECOM?schema=public'),
       productApiBaseUrl: this.nestConfigService.get<string>('PRODUCT_API_BASE_URL', 'http://localhost:3000/products'),
+      jwtAccessTokenSecret: this.nestConfigService.get<string>('JWT_SECRET', '1234567'),
+      jwtAccessTokenExp: this.nestConfigService.get<string>('JWT_ACCESS_TOKEN_EXPIRATION_TIME', '60m'),
+      jwtRefreshAccessTokenSecret: this.nestConfigService.get<string>('JWT_REFRESH_SECRET', 'Refresh1234567#'),
+      jwtRefreshAccessTokenExp: this.nestConfigService.get<string>('JWT_REFRESH_TOKEN_EXPIRATION_TIME', '7d')
     };
   }
 
