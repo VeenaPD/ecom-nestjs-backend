@@ -38,6 +38,7 @@ model User {
 
    // Add relation for products authored by this user
   products  Product[] // This is the missing back-reference!
+  orders    Order[]
 
   @@map("users") // Maps this model to a "users" table in the database
 }
@@ -89,6 +90,8 @@ model Product {
   authorId    String   @map("author_id") // Foreign key to User
   author      User     @relation(fields: [authorId], references: [id])
 
+  orders    Order[]
+  
   @@map("products")
 }
 
@@ -103,4 +106,21 @@ model RefreshToken {
   revoked   Boolean  @default(false) // To allow immediate revocation
 
   @@index([userId]) // Index for faster lookup by user
+}
+
+model Order {
+  id          String   @id @default(uuid())
+  status      String
+  quantity    Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+
+  // New: Link order to a user (the user)
+  userId    String 
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@map("orders")
 }

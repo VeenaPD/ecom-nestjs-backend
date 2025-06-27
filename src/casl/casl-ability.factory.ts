@@ -1,15 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { Ability, AbilityBuilder, ExtractSubjectType, InferSubjects, PureAbility } from '@casl/ability';
-import { User, Product, Category } from '@prisma/client'; // Import only the types
+import { User, Product, Category, Order } from '@prisma/client'; // Import only the types
 import { Action } from '../shared/enum/action.enum';
 
 // Define the exact string literal names that will be used as subjects
-type AppSubjectStrings = 'all' | 'User' | 'Product' | 'Category';
+type AppSubjectStrings = 'all' | 'User' | 'Product' | 'Category' | 'Order';
 
 // InferSubjects will help if you ever work with actual class instances that
 // match the Prisma types, but for now, the explicit strings are key.
 // We combine them to ensure all possible subject types (strings or instances) are covered.
-type Subjects = AppSubjectStrings | InferSubjects<User | Product | Category>;
+type Subjects = AppSubjectStrings | InferSubjects<User | Product | Category | Order>;
 
 export type AppAbility = PureAbility<[Action, Subjects]>;
 
@@ -46,6 +46,7 @@ export class CaslAbilityFactory {
             can(Action.Read, 'User');
             can(Action.Read, 'Product');
             can(Action.Read, 'Category');
+            can(Action.Read, 'Order');
 
             // Users can manage their OWN User profile (check against an instance's id)
             can(Action.Manage, 'User', { id: user.id });
@@ -55,6 +56,9 @@ export class CaslAbilityFactory {
 
             // Users can delete their OWN products
             can(Action.Delete, 'Product', { authorId: user.id });
+            
+            // Users can update their OWN orders (check against an instance's userId)
+          //  can(Action.Update, 'Order', { userId: user.id });
         }
 
         // return build({

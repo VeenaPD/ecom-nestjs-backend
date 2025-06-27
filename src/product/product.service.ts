@@ -13,6 +13,8 @@ export class ProductService {
     createProductDto: CreateProductDto,
     authorId: string, // <-- Added authorId
   ): Promise<Product> {
+    console.log(authorId, "authorId product service");
+    
     return this.prisma.product.create({
       data: {
         ...createProductDto,

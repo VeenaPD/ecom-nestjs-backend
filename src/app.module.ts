@@ -18,6 +18,7 @@ import { LoggingInterceptor } from './shared/interceptors/logging.interceptor';
 import { LoggerMiddleware } from './shared/middleware/logger.middleware';
 import { OrderModule } from './order/order.module';
 import { ProductController } from './product/product.controller';
+import { EventsGateway } from './events/events.gateway';
 
 @Module({
   imports: [
@@ -47,11 +48,12 @@ import { ProductController } from './product/product.controller';
     CaslModule,
     OrderModule],
   controllers: [AppController],
-  providers: [AppService, 
+  providers: [AppService,
+    EventsGateway, // Add your Gateway here
     {
-    provide: APP_GUARD,
-    useClass: RolesGuard, // Apply RolesGuard globally
-  },
+      provide: APP_GUARD,
+      useClass: RolesGuard, // Apply RolesGuard globally
+    },
     {
       // <--- ADD THIS FOR GLOBAL LOGGING INTERCEPTOR
       provide: APP_INTERCEPTOR,
